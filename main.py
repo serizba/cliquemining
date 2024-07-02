@@ -5,7 +5,7 @@ from dataloaders.GSVCitiesDataloader import GSVCitiesDataModule
 
 if __name__ == '__main__':        
     datamodule = GSVCitiesDataModule(
-        batch_size=60,
+        batch_size=30,
         img_per_place=4,
         min_img_per_place=4,
         shuffle_all=False, # shuffle all images or keep shuffling in-city only
@@ -14,6 +14,13 @@ if __name__ == '__main__':
         num_workers=10,
         show_data_stats=True,
         val_set_names=['pitts30k_val', 'pitts30k_test', 'msls_val'], # pitts30k_val, pitts30k_test, msls_val
+        clique_mapillary_args={
+            'same_place_threshold': 25.0,
+            # We create more batches than required so
+            # that we can shuffle the dataset after each epoch
+            'num_batches': 4000,
+            'num_processes': 10,
+        }
     )
     
     model = VPRModel(

@@ -3,6 +3,7 @@ from torch.utils.data.dataloader import DataLoader
 from torchvision import transforms as T
 
 from dataloaders.GSVCitiesDataset import GSVCitiesDataset
+from dataloaders.CliqueMapillaryDataset import CliqueMapillaryDataset
 from . import PittsburgDataset
 from . import MapillaryDataset
 
@@ -54,7 +55,8 @@ class GSVCitiesDataModule(pl.LightningDataModule):
                  mean_std=IMAGENET_MEAN_STD,
                  batch_sampler=None,
                  random_sample_from_each_place=True,
-                 val_set_names=['pitts30k_val', 'msls_val']
+                 val_set_names=['pitts30k_val', 'msls_val'],
+                 clique_mapillary_args=None,
                  ):
         super().__init__()
         self.batch_size = batch_size
@@ -70,6 +72,7 @@ class GSVCitiesDataModule(pl.LightningDataModule):
         self.std_dataset = mean_std['std']
         self.random_sample_from_each_place = random_sample_from_each_place
         self.val_set_names = val_set_names
+        self.clique_mapillary_args = clique_mapillary_args
         self.save_hyperparameters() # save hyperparameter with Pytorch Lightening
 
         self.train_transform = T.Compose([
@@ -90,6 +93,14 @@ class GSVCitiesDataModule(pl.LightningDataModule):
             'drop_last': False,
             'pin_memory': True,
             'shuffle': self.shuffle_all}
+        
+        self.train_loader_config_2 = {
+            'batch_size': self.batch_size,
+            'num_workers': self.num_workers,
+            'drop_last': False,
+            'pin_memory': True,
+            'shuffle': False,
+        }
 
         self.valid_loader_config = {
             'batch_size': self.batch_size,
@@ -99,6 +110,7 @@ class GSVCitiesDataModule(pl.LightningDataModule):
             'shuffle': False}
 
     def setup(self, stage):
+        self.train_dataset_2 = CliqueMapillaryDataset(self.train_transform, **self.clique_mapillary_args)
         if stage == 'fit':
             # load train dataloader with reload routine
             self.reload()
@@ -123,16 +135,22 @@ class GSVCitiesDataModule(pl.LightningDataModule):
                 self.print_stats()
 
     def reload(self):
+        self.train_dataset_2.reload()
         self.train_dataset = GSVCitiesDataset(
             cities=self.cities,
             img_per_place=self.img_per_place,
             min_img_per_place=self.min_img_per_place,
             random_sample_from_each_place=self.random_sample_from_each_place,
             transform=self.train_transform)
+        
+        self.train_dataset_1 = self.train_dataset
 
     def train_dataloader(self):
         self.reload()
-        return DataLoader(dataset=self.train_dataset, **self.train_loader_config)
+        return {
+            "GSVCities": DataLoader(dataset=self.train_dataset_1, **self.train_loader_config), 
+            "MSLS": DataLoader(dataset=self.train_dataset_2, **self.train_loader_config_2)
+        }
 
     def val_dataloader(self):
         val_dataloaders = []
@@ -161,7 +179,7 @@ class GSVCitiesDataModule(pl.LightningDataModule):
         table.header = False
         for i, val_set_name in enumerate(self.val_set_names):
             table.add_row([f"Validation set {i+1}", f"{val_set_name}"])
-        # table.add_row(["# of places", f'{self.train_dataset.__len__()}'])
+        table.add_row(["# of places", f'{self.train_dataset.__len__()}'])
         print(table.get_string(title="Validation Datasets"))
         print()
 

@@ -164,15 +164,20 @@ class VPRModel(pl.LightningModule):
     
     # This is the training step that's executed at each iteration
     def training_step(self, batch, batch_idx):
-        places, labels = batch
+        # places, labels, types = batch
+
+        places_1, labels_1 = batch['GSVCities']
+        places_2, labels_2 = batch['MSLS']
+
+        BS, N, ch, h, w = places_1.shape
+
+        # Labels 2 should be adjusted to be unique
+        labels_2 += labels_1.max() + 1
         
         # Note that GSVCities yields places (each containing N images)
         # which means the dataloader will return a batch containing BS places
-        BS, N, ch, h, w = places.shape
-        
-        # reshape places and labels
-        images = places.view(BS*N, ch, h, w)
-        labels = labels.view(-1)
+        images = torch.concat([places_1, places_2], dim=0).view((places_1.size(0) + places_2.size(0))*N, ch, h, w)
+        labels = torch.concat([labels_1, labels_2], dim=0).view(-1)
 
         # Feed forward the batch to the model
         descriptors = self(images) # Here we are calling the method forward that we defined above
@@ -180,7 +185,10 @@ class VPRModel(pl.LightningModule):
         if torch.isnan(descriptors).any():
             raise ValueError('NaNs in descriptors')
 
-        loss = self.loss_function(descriptors, labels) # Call the loss_function we defined above
+        # Split loss
+        loss_1 = self.loss_function(descriptors[:places_1.size(0)*N], labels[:places_1.size(0)*N])
+        loss_2 = self.loss_function(descriptors[places_2.size(0)*N:], labels[places_2.size(0)*N:])
+        loss = loss_1 + loss_2
         
         self.log('loss', loss.item(), logger=True, prog_bar=True)
         return {'loss': loss}

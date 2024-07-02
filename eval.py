@@ -84,7 +84,7 @@ def load_model(ckpt_path):
         },
     )
 
-    model.load_state_dict(torch.load(ckpt_path))
+    model.load_state_dict(torch.load(ckpt_path)['state_dict'])
     model = model.eval()
     model = model.to('cuda')
     print(f"Loaded model from {ckpt_path} Successfully!")
