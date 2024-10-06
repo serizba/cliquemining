@@ -180,7 +180,7 @@ def create_dataset_part(
 
                 # Append place to batch
                 rows = df.iloc[list(clique)]
-                images[i, batch_idx] = np.char.add(np.char.add(np.where(rows['query'].values, f'{city}/query/images/', f'{city}/database/images/').astype('<U100'), rows['key'].values), '.jpg')
+                images[i, batch_idx] = np.char.add(np.char.add(np.where(rows['query'].values, f'{city}/query/images/', f'{city}/database/images/').astype('<U100'), rows['key'].values.astype('<U100')), '.jpg')
                 batch_idx += 1
 
                 # Remove selected place and its neighbors from the graph
